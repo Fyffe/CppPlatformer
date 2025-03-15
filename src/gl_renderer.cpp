@@ -5,9 +5,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+const char* SPRITE_PATH = "assets/sprites/test_atlas.png";
+
 struct GLContext
 {
     GLuint programID;
+    GLuint textureID;
 };
 
 static GLContext glContext;
@@ -91,8 +94,32 @@ bool gl_init(BumpAllocator* transientStorage)
     glBindVertexArray(VAO);
 
     {
-        
+        int width, height, channels;
+
+        char* data = (char*)stbi_load(SPRITE_PATH, &width, &height, &channels, 4);
+
+        _ASSERT(data, "Failed to load sprite");
+
+        if(!data)
+        {
+            return false;
+        }
+
+        glGenTextures(1, &glContext.textureID);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, glContext.textureID);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+        stbi_image_free(data);
     }
+
+    glEnable(GL_FRAMEBUFFER_SRGB);
+    glDisable(0x809D);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
