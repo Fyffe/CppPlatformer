@@ -2,6 +2,9 @@
 #include "alloc_lib.h"
 #include "file_lib.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 struct GLContext
 {
     GLuint programID;
@@ -86,6 +89,10 @@ bool gl_init(BumpAllocator* transientStorage)
     
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
+
+    {
+        
+    }
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
