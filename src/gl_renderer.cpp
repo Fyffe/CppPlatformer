@@ -5,12 +5,19 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#include "render_interface.h"
+
+#include "input.h"
+
 const char* SPRITE_PATH = "assets/sprites/test_atlas.png";
 
 struct GLContext
 {
     GLuint programID;
     GLuint textureID;
+    GLuint transformSBOID;
+    GLuint screenSizeID;
+    GLuint orthoProjID;
 };
 
 static GLContext glContext;
@@ -118,6 +125,17 @@ bool gl_init(BumpAllocator* transientStorage)
         stbi_image_free(data);
     }
 
+    {
+        glGenBuffers(1, &glContext.transformSBOID);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, glContext.transformSBOID);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Transform) * MAX_TRANSFORMS, renderData->transforms, GL_DYNAMIC_DRAW);
+    }
+
+    {
+        glContext.screenSizeID = glGetUniformLocation(glContext.programID, "screenSize");
+        glContext.orthoProjID = glGetUniformLocation(glContext.programID, "orthoProj");
+    }
+
     glEnable(GL_FRAMEBUFFER_SRGB);
     glDisable(0x809D);
 
@@ -134,6 +152,24 @@ void gl_render()
     glClearColor(119.0f / 255.0f, 33.0f / 255.0f, 111.0f / 255.0f, 1.0f);
     glClearDepth(0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glViewport(0, 0, input.screenWidth, input.screenHeight);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glViewport(0, 0, input->screenSize.x, input->screenSize.y);
+
+    Vec2 screenSize = {(float)input->screenSize.x, (float)input->screenSize.y};
+    
+    glUniform2fv(glContext.screenSizeID, 1, &screenSize.x);
+
+    OrthoCamera2D camera = renderData->mainCamera;
+    Matrix4x4 orthoProj = orthographic_projection(camera.position.x - camera.dimensions.x / 2.0f,
+                                                  camera.position.x + camera.dimensions.x / 2.0f,
+                                                  camera.position.y - camera.dimensions.y / 2.0f,
+                                                  camera.position.y + camera.dimensions.y / 2.0f);
+    
+    glUniformMatrix4fv(glContext.orthoProjID, 1, GL_FALSE, &orthoProj.ax);
+
+    {
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Transform) * renderData->transformCount, renderData->transforms);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, renderData->transformCount);
+
+        renderData->transformCount = 0;
+    }
 }
